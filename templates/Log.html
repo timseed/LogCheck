@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LogCheck</title>
+    Log checker Page
+</head>
+<body>
+<form action="" method="post">
+            {{ form.csrf }}
+
+            <div class="input Query">
+                {{ form.Exch.label }} {{ form.Exch }}
+            </div>
+            <div class="input Query">
+                {{ form.Feed.label }} {{ form.Feed }}
+            </div>
+
+            <div class="input submit">
+                <input type="submit" value="Submit" />
+            </div>
+        </form>
+</body>
+</html>
