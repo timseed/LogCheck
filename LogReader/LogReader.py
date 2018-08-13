@@ -4,7 +4,10 @@ from datetime import datetime, timedelta
 from random import randint
 import seaborn as sns
 import matplotlib
+import matplotlib.pyplot as plt
 import daiquiri
+import base64
+import io
 
 
 class LogReader(object):
@@ -14,8 +17,7 @@ class LogReader(object):
 
     def fake_data(self,start_date="1-Aug-2018",
                           end_date="1-Nov-2018",
-                          frequency="15min",
-                          summed_freq="1W"):
+                          data_frequency="15min"):
         """
         Fake some data !!
         :param start_date: The Start Date for the Fake Data
@@ -26,9 +28,12 @@ class LogReader(object):
         """
 
         # Some exchanges
-        exc = ["Ex{}".format(n) for n in range(130)]
+        EX_MAX=10
+        FD_MAX=10
+
+        exc = ["Ex{}".format(n) for n in range(EX_MAX)]
         # A Feed
-        feed = ['F{}'.format(n) for n in range(38)]
+        feed = ['F{}'.format(n) for n in range(FD_MAX)]
 
 
         def good_bad_etc():
@@ -45,7 +50,11 @@ class LogReader(object):
 
         def Simplify_date(date_time_obj):
             """
-            Attempt to make Date-Time easier to read. Does not seem to work as intended
+            Attempt to make Date-Time easier to read.
+
+            Does not seem to work as intended !!
+
+
             :param date_time_obj:
             :return:
             """
@@ -61,7 +70,7 @@ class LogReader(object):
         # Set the ID
         df_good.Id = [a for a in range(0, len(df_good))]
         # Generate a Date/Time Value
-        df_good.When = pd.date_range(start="1-Aug-2018", end="1-Nov-2018", freq='15min')
+        df_good.When = pd.date_range(start=start_date, end=end_date, freq=data_frequency)
 
         id = [a for a in range(0, len(df_good))]
         ex = [exc[randint(0, len(exc) - 1)] for a in range(0, len(df_good))]
@@ -71,19 +80,19 @@ class LogReader(object):
         df_good.Feed = fd
         # Use a simple Function to skew the Dist of the Good-Bad etc
         df_good.Status = df_good.Status.apply(lambda x: good_bad_etc())
-
         df_good['Ex_Feed'] = df_good.Exchange + " " + df_good.Feed
-
         return df_good
 
 
-    def Process(self,df_good):
+    def Process(self,df_good,resample_freq="w"):
         """
         Do the Data Frame Filtering - producing a pivot table which then can
         be rendered
 
 
+
         :param df_good: Pandas Dataframe with ALL (good and Bad value in it)
+        :param resample_freq: Time period i.e. (w,2w,1d,12d,2m)
         :return: df_fail: Pandas DataFrame which has been pivoted  - this contains all the Bad Data Records
         """
 
@@ -98,7 +107,7 @@ class LogReader(object):
         # Remove the Col as we are using it as an index
         df_summary.drop(columns=['When'], inplace=True)
 
-        df_grouped = df_summary.groupby(['Ex_Feed', 'Status']).resample('w')['size'].sum()
+        df_grouped = df_summary.groupby(['Ex_Feed', 'Status']).resample(resample_freq)['size'].sum()
         #
         # Now remove the index ...i.e. flatten the Output
         df_grouped = df_grouped.reset_index()
@@ -108,20 +117,50 @@ class LogReader(object):
         df_fail = (df_grouped[df_grouped.Status == 'Fail']).drop(columns=['Status'])
         #
         #
-        # df_fail.When=df_fail.When.apply(lambda x: Simplify_date(pd.to_datetime(x)))
-        df_fail = df_fail.pivot("When", "Ex_Feed", "size")
+        #df_fail.When=df_fail.When.apply(lambda x: Simplify_date(pd.to_datetime(x)))
+        #df_fail = df_fail.pivot("When", "Ex_Feed","size")
+
+        df_fail_pvt = df_fail.pivot(index="Ex_Feed", columns="When", values="size")
+
         # df_fail.reset_index(inplace=True)
         # MUST get rid of nan values - else nasty crash will occur.
-        df_fail.fillna(0, inplace=True)
+        df_fail_pvt.fillna(0, inplace=True)
+        return df_fail_pvt
 
-        return df_fail
-
-    def Img(self,df_pivoted_data):
+    def Img(self,orig_data, df_pivoted_data):
         """
 
+        :param orig_data: A Pandas Data Frame
         :param df_pivoted_data: A Pandas Data Frame which has been pivoted
         :return: A Matplotlib Image
         """
 
         """ Note this will need to be base64 encoded before it can be passed to a web page"""
-        return sns.heatmap(df_pivoted_data, annot=True)
+
+        #max_val_in_df = max(list(df_pivoted_data.max()))
+
+        #
+        # Reformat X Axis using  using the DataFrom prior to the pivot
+        #
+
+        return sns.heatmap(df_pivoted_data, annot=True,
+                    cmap='gist_rainbow_r')
+        #eturn plt.show()
+        #return plt
+        #return sns.heatmap(df_pivoted_data, annot=True,fmt=".1g")
+
+
+    def plot_to_b64png(self,df_plot):
+        '''
+
+        :param df_plot: the output of df.plot()
+        :return: base64 version of img
+        '''
+        fig = df_plot.get_figure()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        buffer = b''.join(buf)
+        b2 = base64.b64encode(buffer)
+        b64_plot = b2.decode('utf-8')
+        return b64_plot

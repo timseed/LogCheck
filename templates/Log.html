@@ -19,6 +19,16 @@
             <div class="input submit">
                 <input type="submit" value="Submit" />
             </div>
+
+        {% if data != None %}
+            {%  for k, v in data.items() %}
+                <div>
+                <h2> HeatMap </h2>
+             <img src="data:image/png;base64,{{ v["heatmap"] }}", width="100%">
+                </div>
+            {% endfor %}
+    {% endif %}
+
         </form>
 </body>
 </html>
