@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from matplotlib.figure import Figure
 from random import randint
 import seaborn as sns
 import matplotlib
@@ -143,24 +144,42 @@ class LogReader(object):
         # Reformat X Axis using  using the DataFrom prior to the pivot
         #
 
-        return sns.heatmap(df_pivoted_data, annot=True,
+        rv = sns.heatmap(df_pivoted_data, annot=True,
                     cmap='gist_rainbow_r')
-        #eturn plt.show()
-        #return plt
-        #return sns.heatmap(df_pivoted_data, annot=True,fmt=".1g")
+        print("Type of rv is {}".format(type(rv)))
+        f=rv.figure
+        f.savefig("output.png")
 
+        return rv
 
-    def plot_to_b64png(self,df_plot):
+    def Img_new(self,orig_data,df_pivoted_data):
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        from matplotlib.figure import Figure
+        from matplotlib.dates import DateFormatter
+
+        fig = Figure()
+        ax = fig.add_subplot(111)
+
+        rv = sns.heatmap(df_pivoted_data, annot=True,
+                         cmap='gist_rainbow_r')
+
+        fig.autofmt_xdate()
+        canvas = FigureCanvas(fig)
+        return canvas
+
+    def plot_to_b64png(self,heat_canvas):
         '''
 
         :param df_plot: the output of df.plot()
         :return: base64 version of img
         '''
-        fig = df_plot.get_figure()
+
+        fig = heat_canvas.figure
         buf = io.BytesIO()
         fig.savefig(buf, format='png')
         buf.seek(0)
         buffer = b''.join(buf)
-        b2 = base64.b64encode(buffer)
-        b64_plot = b2.decode('utf-8')
+
+        b64_plot=base64.encodebytes(buffer).decode('utf-8').replace('\n', '')
+
         return b64_plot
